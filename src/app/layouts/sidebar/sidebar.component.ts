@@ -170,14 +170,17 @@ import {
         <div class="pt-4 border-t border-stone-200/60 mt-4 space-y-2">
           <div class="flex justify-between items-center text-xs">
             <span class="font-medium text-stone-600">Storage</span>
-            <span class="text-stone-500">{{ usedPercentage() }}% used</span>
+            <span class="text-stone-500 font-medium">{{ usedPercentageLabel() }}</span>
           </div>
-          <div class="w-full bg-stone-200 rounded-full h-1.5 overflow-hidden">
-            <div class="bg-brownblack h-1.5 rounded-full" [style.width.%]="usedPercentage()"></div>
+          <div class="w-full bg-stone-200/80 rounded-full h-1.5 overflow-hidden">
+            <div
+              class="bg-brownblack h-1.5 rounded-full transition-all duration-300"
+              [style.width.%]="progressBarWidth()"
+            ></div>
           </div>
-          <div class="flex items-center justify-between text-[11px] text-stone-400">
-            <span>{{ (fileService.statistics().totalStorageBytes / (1024 * 1024 * 1024)).toFixed(2) }} GB of 50 GB</span>
-            <a routerLink="/dashboard" class="text-stone-700 hover:underline font-medium">Dashboard</a>
+          <div class="flex items-center justify-between text-[11px] text-stone-500">
+            <span class="font-medium text-stone-600">{{ formattedUsed() }} of 50 GB</span>
+            <a routerLink="/dashboard" class="text-stone-700 hover:text-stone-950 hover:underline font-semibold transition-colors">Dashboard</a>
           </div>
         </div>
       </aside>
@@ -203,10 +206,31 @@ export class SidebarComponent {
   readonly FileText = FileText;
   readonly FileSpreadsheet = FileSpreadsheet;
 
-  usedPercentage = computed(() => {
+  formattedUsed = computed(() => {
+    const bytes = this.fileService.statistics().totalStorageBytes;
+    if (bytes <= 0) return '0 B';
+    const k = 1024;
+    if (bytes < k) return `${bytes} B`;
+    if (bytes < k * k) return `${(bytes / k).toFixed(1)} KB`;
+    if (bytes < k * k * k) return `${(bytes / (k * k)).toFixed(1)} MB`;
+    return `${(bytes / (k * k * k)).toFixed(2)} GB`;
+  });
+
+  usedPercentageLabel = computed(() => {
     const total = this.fileService.statistics().totalStorageBytes;
-    const max = 50 * 1024 * 1024 * 1024;
-    return Math.min(100, Math.round((total / max) * 100));
+    if (total <= 0) return '0% used';
+    const pct = (total / (50 * 1024 * 1024 * 1024)) * 100;
+    if (pct < 0.1) return '< 0.1% used';
+    if (pct < 1) return '< 1% used';
+    return `${Math.round(pct)}% used`;
+  });
+
+  progressBarWidth = computed(() => {
+    const total = this.fileService.statistics().totalStorageBytes;
+    if (total <= 0) return 0;
+    const pct = (total / (50 * 1024 * 1024 * 1024)) * 100;
+    // Minimum 3.5% visual width so small files render visibly on the bar
+    return Math.max(3.5, Math.min(100, pct));
   });
 
   getFileIcon(mimeType: string) {
