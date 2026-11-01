@@ -252,8 +252,9 @@ export class UploadModalComponent {
       });
     }, 150);
 
+    const currentFolderId = this.fileService.currentFolder()?.id || null;
     this.fileService
-      .uploadFile(file, this.visibility())
+      .uploadFile(file, this.visibility(), currentFolderId)
       .then(() => {
         clearInterval(interval);
         this.uploadProgress.set(100);

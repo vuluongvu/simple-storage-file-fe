@@ -8,6 +8,11 @@ export interface FileItem {
   mimeType: string;
   size: number;
   visibility: FileVisibility;
+  folderId?: number | null;
+  folder?: {
+    id: number;
+    name: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
   thumbnailUrl?: string;

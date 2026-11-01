@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { FileService } from '../../core/services/file.service';
 import { ToastService } from '../../core/services/toast.service';
 import { FileItem, FileVisibility } from '../../core/models/file.model';
+import { FolderItem } from '../../core/models/folder.model';
 import { FileSizePipe } from '../../shared/pipes/file-size.pipe';
 import { FileThumbnailComponent } from '../../shared/components/file-thumbnail/file-thumbnail.component';
 import {
@@ -11,6 +12,7 @@ import {
   Plus,
   Upload,
   FolderPlus,
+  Folder,
   FileEdit,
   List,
   LayoutGrid,
@@ -27,6 +29,7 @@ import {
   Download,
   Trash2,
   Eye,
+  ChevronRight,
 } from 'lucide-angular';
 
 type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheets' | 'Public';
@@ -39,7 +42,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
     <div class="space-y-8 max-w-6xl mx-auto pb-16">
       <!-- 1. TOP ACTION CARDS (Minimalist SaaS action row) -->
       <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <!-- 1.1 + Create (Clean white card matching other action cards) -->
+        <!-- 1.1 + Create (Upload modal) -->
         <button
           (click)="fileService.openUploadModal()"
           class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
@@ -63,7 +66,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
 
         <!-- 1.3 Create folder -->
         <button
-          (click)="createFolderPlaceholder()"
+          (click)="fileService.openCreateFolderModal()"
           class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
         >
           <div class="w-6 h-6 flex items-center justify-center text-stone-800">
@@ -84,9 +87,85 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
         </button>
       </section>
 
-      <!-- 2. "ALL FILES" SECTION HEADER & FILTER PILLS -->
+      <!-- 2. BREADCRUMB NAVIGATION -->
+      <nav class="flex items-center gap-2 text-sm text-stone-600 bg-stone-50/80 px-4 py-2.5 rounded-xl border border-stone-200/60">
+        @for (crumb of fileService.folderBreadcrumbs(); track $index; let last = $last) {
+          @if (!last) {
+            <button
+              type="button"
+              (click)="onBreadcrumbClick(crumb)"
+              class="hover:text-blue-600 font-medium transition flex items-center gap-1.5"
+            >
+              @if ($index === 0) {
+                <lucide-icon [img]="Folder" class="w-4 h-4 text-stone-500"></lucide-icon>
+              }
+              <span>{{ crumb.name }}</span>
+            </button>
+            <lucide-icon [img]="ChevronRight" class="w-3.5 h-3.5 text-stone-400"></lucide-icon>
+          } @else {
+            <span class="font-semibold text-stone-900 flex items-center gap-1.5">
+              @if ($index === 0) {
+                <lucide-icon [img]="Folder" class="w-4 h-4 text-stone-800"></lucide-icon>
+              }
+              <span>{{ crumb.name }}</span>
+            </span>
+          }
+        }
+      </nav>
+
+      <!-- 3. FOLDERS SECTION -->
+      @if (fileService.folders().length > 0) {
+        <section class="space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-500">
+              Folders ({{ fileService.folders().length }})
+            </h3>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            @for (folder of fileService.folders(); track folder.id) {
+              <div
+                (click)="fileService.navigateToFolder(folder)"
+                class="group flex items-center justify-between p-3.5 bg-white border border-stone-200/80 hover:border-blue-400 hover:shadow-xs rounded-xl cursor-pointer transition select-none"
+              >
+                <div class="flex items-center gap-3 min-w-0">
+                  <div class="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600 shrink-0 group-hover:bg-amber-100 group-hover:scale-105 transition">
+                    <lucide-icon [img]="Folder" class="w-5 h-5" [strokeWidth]="2"></lucide-icon>
+                  </div>
+                  <div class="min-w-0">
+                    <p class="text-sm font-semibold text-stone-900 truncate group-hover:text-blue-600 transition">
+                      {{ folder.name }}
+                    </p>
+                    <p class="text-[11px] text-stone-400">
+                      {{ folder.fileCount || 0 }} files
+                    </p>
+                  </div>
+                </div>
+
+                <!-- Delete Folder Button -->
+                <button
+                  type="button"
+                  (click)="$event.stopPropagation(); deleteFolder(folder)"
+                  class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                  title="Delete folder"
+                >
+                  <lucide-icon [img]="Trash2" class="w-4 h-4" [strokeWidth]="2"></lucide-icon>
+                </button>
+              </div>
+            }
+          </div>
+        </section>
+      }
+
+      <!-- 4. "ALL FILES" SECTION HEADER & FILTER PILLS -->
       <section class="space-y-4">
-        <h2 class="text-2xl font-bold tracking-tight text-stone-900">All files</h2>
+        <div class="flex items-center justify-between">
+          <h2 class="text-xl font-bold tracking-tight text-stone-900">
+            {{ fileService.currentFolder() ? fileService.currentFolder()?.name : 'All files' }}
+          </h2>
+          <span class="text-xs text-stone-500 font-medium">
+            {{ filteredFiles().length }} {{ filteredFiles().length === 1 ? 'file' : 'files' }}
+          </span>
+        </div>
 
         <!-- Filter Pills Bar & View Toggle -->
         <div class="flex items-center justify-between gap-4 overflow-x-auto pb-1">
@@ -124,7 +203,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
         </div>
       </section>
 
-      <!-- 3. FILE LIST (With consistent Lucide Icons) -->
+      <!-- 5. FILE LIST -->
       @if (fileService.isLoading()) {
         <!-- Skeleton Loading State -->
         <div class="space-y-4">
@@ -144,23 +223,38 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
             </div>
           }
         </div>
-      } @else if (filteredFiles().length === 0) {
-        <!-- Empty State with Lucide Icon -->
+      } @else if (filteredFiles().length === 0 && fileService.folders().length === 0) {
+        <!-- Completely Empty State -->
         <div class="py-16 text-center border-2 border-dashed border-stone-200 rounded-2xl bg-stone-50/50">
           <div class="w-12 h-12 mx-auto rounded-full bg-stone-100 flex items-center justify-center text-stone-500 mb-3">
             <lucide-icon [img]="FolderOpen" class="w-6 h-6" [strokeWidth]="2"></lucide-icon>
           </div>
-          <h3 class="text-base font-semibold text-stone-900">No files found</h3>
+          <h3 class="text-base font-semibold text-stone-900">
+            {{ fileService.currentFolder() ? 'This folder is empty' : 'No files found' }}
+          </h3>
           <p class="text-xs text-stone-500 mt-1 max-w-sm mx-auto">
-            {{ fileService.searchQuery() ? 'No files match your search query.' : 'Upload your first file to get started with Simple File Storage.' }}
+            {{ fileService.searchQuery() ? 'No files match your search query.' : (fileService.currentFolder() ? 'Upload files or create subfolders here.' : 'Upload your first file or create a folder to get started.') }}
           </p>
-          <button
-            (click)="fileService.openUploadModal()"
-            class="mt-4 px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5"
-          >
-            <lucide-icon [img]="Upload" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
-            <span>Upload a file</span>
-          </button>
+          <div class="mt-4 flex items-center justify-center gap-2">
+            <button
+              (click)="fileService.openUploadModal()"
+              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5"
+            >
+              <lucide-icon [img]="Upload" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
+              <span>Upload file</span>
+            </button>
+            <button
+              (click)="fileService.openCreateFolderModal()"
+              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5"
+            >
+              <lucide-icon [img]="FolderPlus" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
+              <span>New folder</span>
+            </button>
+          </div>
+        </div>
+      } @else if (filteredFiles().length === 0 && fileService.folders().length > 0) {
+        <div class="py-12 text-center border border-dashed border-stone-200 rounded-2xl bg-stone-50/40">
+          <p class="text-xs text-stone-500 font-medium">No files in this folder. Drop or upload files using the action card above.</p>
         </div>
       } @else if (!isGridView()) {
         <!-- LIST VIEW -->
@@ -377,6 +471,8 @@ export class MyFilesComponent implements OnInit {
   readonly Plus = Plus;
   readonly Upload = Upload;
   readonly FolderPlus = FolderPlus;
+  readonly Folder = Folder;
+  readonly ChevronRight = ChevronRight;
   readonly FileEdit = FileEdit;
   readonly List = List;
   readonly LayoutGrid = LayoutGrid;
@@ -483,8 +579,18 @@ export class MyFilesComponent implements OnInit {
     }
   }
 
-  createFolderPlaceholder() {
-    this.toast.info('Folder creation will be synced with your cloud workspace.');
+  async deleteFolder(folder: FolderItem) {
+    if (confirm(`Are you sure you want to delete folder "${folder.name}" and all its contents?`)) {
+      await this.fileService.deleteFolder(folder.id);
+    }
+  }
+
+  onBreadcrumbClick(crumb: { id: number | null; name: string }) {
+    if (crumb.id === null) {
+      this.fileService.navigateToFolder(null);
+    } else {
+      this.fileService.navigateToFolder({ id: crumb.id, name: crumb.name } as FolderItem);
+    }
   }
 
   quickEditPdfDemo() {

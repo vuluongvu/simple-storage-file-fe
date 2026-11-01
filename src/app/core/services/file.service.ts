@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ToastService } from './toast.service';
 import { AuthService } from './auth.service';
 import { FileItem, FileListResponse, FileStatistics, FileVisibility, PreviewFile } from '../models/file.model';
+import { FolderItem } from '../models/folder.model';
 import { FileShare, SharedWithMeItem, SharePermission } from '../models/share.model';
 import { PublicFileInfo, ShareLink } from '../models/share-link.model';
 import { environment } from '../../../environments/environment';
@@ -35,8 +36,15 @@ export class FileService {
   isPreviewModalOpen = signal<boolean>(false);
   activePreviewFile = signal<PreviewFile | null>(null);
 
+  isCreateFolderModalOpen = signal<boolean>(false);
+
   // Trigger file list refresh across views
   refreshTrigger = signal<number>(0);
+
+  // Folder signals
+  folders = signal<FolderItem[]>([]);
+  currentFolder = signal<FolderItem | null>(null);
+  folderBreadcrumbs = signal<{ id: number | null; name: string }[]>([{ id: null, name: 'My Files' }]);
 
   // Data signals
   files = signal<FileItem[]>([]);
@@ -61,9 +69,11 @@ export class FileService {
   }
 
   refreshAll() {
-    this.fetchFiles();
+    const currentFolderId = this.currentFolder()?.id || null;
+    this.fetchFiles(undefined, undefined, 1, 100, currentFolderId || 'root');
     this.fetchSharedWithMe();
     this.fetchSharedByMe();
+    this.fetchFolders(currentFolderId);
   }
 
   filteredFiles = computed<FileItem[]>(() => {
@@ -82,6 +92,14 @@ export class FileService {
 
   closeUploadModal() {
     this.isUploadModalOpen.set(false);
+  }
+
+  openCreateFolderModal() {
+    this.isCreateFolderModalOpen.set(true);
+  }
+
+  closeCreateFolderModal() {
+    this.isCreateFolderModalOpen.set(false);
   }
 
   openShareModal(file: FileItem) {
@@ -157,13 +175,16 @@ export class FileService {
   }
 
   // Core File Operations via Backend API
-  async fetchFiles(search?: string, visibility?: FileVisibility, page = 1, limit = 50): Promise<void> {
+  async fetchFiles(search?: string, visibility?: FileVisibility, page = 1, limit = 50, folderId?: number | null | string): Promise<void> {
     this.isLoading.set(true);
     try {
       let url = `${environment.apiUrl}/files?page=${page}&limit=${limit}`;
       const s = search ?? this.searchQuery();
       if (s) url += `&search=${encodeURIComponent(s)}`;
       if (visibility) url += `&visibility=${visibility}`;
+      if (folderId !== undefined && folderId !== null && folderId !== '') {
+        url += `&folderId=${folderId}`;
+      }
 
       const res = await firstValueFrom(
         this.http.get<{ data: FileListResponse }>(url)
@@ -183,6 +204,105 @@ export class FileService {
       console.error('Failed to fetch files from API', err);
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  // Folder Operations
+  async fetchFolders(parentId?: number | null): Promise<FolderItem[]> {
+    try {
+      let url = `${environment.apiUrl}/folders`;
+      if (parentId !== undefined) {
+        url += `?parentId=${parentId === null ? 'null' : parentId}`;
+      }
+      const res = await firstValueFrom(
+        this.http.get<{ data: FolderItem[] }>(url)
+      );
+      const list = res?.data || [];
+      this.folders.set(list);
+      return list;
+    } catch (err: any) {
+      console.error('Failed to fetch folders from API', err);
+      return [];
+    }
+  }
+
+  async createFolder(name: string, parentId?: number | null): Promise<FolderItem> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<{ data: FolderItem }>(`${environment.apiUrl}/folders`, {
+          name: name.trim(),
+          parentId: parentId || undefined,
+        })
+      );
+      this.toast.success(`Created folder "${name}"!`);
+      await this.fetchFolders(this.currentFolder()?.id || null);
+      return res.data;
+    } catch (err: any) {
+      const msg = err?.error?.message || err?.message || 'Failed to create folder';
+      this.toast.error(msg);
+      throw err;
+    }
+  }
+
+  async updateFolder(id: number, name: string): Promise<FolderItem> {
+    try {
+      const res = await firstValueFrom(
+        this.http.patch<{ data: FolderItem }>(`${environment.apiUrl}/folders/${id}`, {
+          name: name.trim(),
+        })
+      );
+      this.toast.success(`Renamed folder to "${name}"!`);
+      await this.fetchFolders(this.currentFolder()?.id || null);
+      return res.data;
+    } catch (err: any) {
+      const msg = err?.error?.message || err?.message || 'Failed to rename folder';
+      this.toast.error(msg);
+      throw err;
+    }
+  }
+
+  async deleteFolder(id: number): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.delete(`${environment.apiUrl}/folders/${id}`)
+      );
+      this.toast.success('Folder deleted successfully');
+      await this.fetchFolders(this.currentFolder()?.id || null);
+      this.triggerRefresh();
+    } catch (err: any) {
+      const msg = err?.error?.message || err?.message || 'Failed to delete folder';
+      this.toast.error(msg);
+      throw err;
+    }
+  }
+
+  async navigateToFolder(folder: FolderItem | null): Promise<void> {
+    this.currentFolder.set(folder);
+    if (!folder) {
+      this.folderBreadcrumbs.set([{ id: null, name: 'My Files' }]);
+      await this.fetchFolders(null);
+      await this.fetchFiles(undefined, undefined, 1, 100, 'root');
+    } else {
+      const crumbs = folder.breadcrumbs
+        ? [{ id: null, name: 'My Files' }, ...folder.breadcrumbs]
+        : [{ id: null, name: 'My Files' }, { id: folder.id, name: folder.name }];
+      this.folderBreadcrumbs.set(crumbs);
+      await this.fetchFolders(folder.id);
+      await this.fetchFiles(undefined, undefined, 1, 100, folder.id);
+    }
+  }
+
+  async moveFileToFolder(fileId: number, folderId: number | null): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.patch(`${environment.apiUrl}/files/${fileId}/folder`, { folderId })
+      );
+      this.toast.success('File moved successfully');
+      this.triggerRefresh();
+    } catch (err: any) {
+      const msg = err?.error?.message || err?.message || 'Failed to move file';
+      this.toast.error(msg);
+      throw err;
     }
   }
 
@@ -218,12 +338,15 @@ export class FileService {
     }
   }
 
-  async uploadFile(file: File, visibility: FileVisibility = 'PRIVATE'): Promise<FileItem> {
+  async uploadFile(file: File, visibility: FileVisibility = 'PRIVATE', folderId?: number | null): Promise<FileItem> {
     this.isLoading.set(true);
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('visibility', visibility);
+      if (folderId !== undefined && folderId !== null) {
+        formData.append('folderId', folderId.toString());
+      }
 
       const res = await firstValueFrom(
         this.http.post<{ data: FileItem }>(`${environment.apiUrl}/files/upload`, formData)

@@ -66,16 +66,18 @@ import { FileThumbnailComponent } from '../file-thumbnail/file-thumbnail.compone
                 <span class="font-bold text-stone-900 text-sm">{{ file.size | fileSize }}</span>
               </div>
               <div>
+                <span class="text-stone-400 block mb-1 font-medium">Folder Location</span>
+                <span class="font-bold text-stone-900 text-sm truncate block">
+                  {{ file.folder ? file.folder.name : 'Root' }}
+                </span>
+              </div>
+              <div>
                 <span class="text-stone-400 block mb-1 font-medium">File Format</span>
-                <span class="font-bold text-stone-900 text-sm uppercase">{{ getFileExt(file.originalName) }}</span>
+                <span class="font-bold text-stone-800 text-xs uppercase">{{ getFileExt(file.originalName) }}</span>
               </div>
               <div>
                 <span class="text-stone-400 block mb-1 font-medium">MIME Type</span>
-                <span class="font-bold text-stone-800 text-xs truncate block font-mono">{{ file.mimeType }}</span>
-              </div>
-              <div>
-                <span class="text-stone-400 block mb-1 font-medium">Storage Key</span>
-                <span class="font-bold text-stone-800 text-[11px] truncate block font-mono">{{ file.storageKey }}</span>
+                <span class="font-bold text-stone-800 text-[11px] truncate block font-mono">{{ file.mimeType }}</span>
               </div>
             </div>
 
