@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "dist/storage-service-fe/browser",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "http://3.25.190.167:3000/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
