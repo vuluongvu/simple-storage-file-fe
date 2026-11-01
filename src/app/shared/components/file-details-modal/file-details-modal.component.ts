@@ -67,9 +67,17 @@ import { FileThumbnailComponent } from '../file-thumbnail/file-thumbnail.compone
               </div>
               <div>
                 <span class="text-stone-400 block mb-1 font-medium">Folder Location</span>
-                <span class="font-bold text-stone-900 text-sm truncate block">
-                  {{ file.folder ? file.folder.name : 'Root' }}
-                </span>
+                <select
+                  [value]="file.folderId || ''"
+                  (change)="onMoveFolder(file, $event)"
+                  class="w-full text-xs font-semibold text-stone-900 bg-white border border-stone-200 rounded-lg py-1 px-1.5 focus:ring-1 focus:ring-stone-400 focus:outline-hidden cursor-pointer"
+                  title="Move to another folder"
+                >
+                  <option value="">Root (My Files)</option>
+                  @for (f of fileService.allFolders(); track f.id) {
+                    <option [value]="f.id">{{ f.name }}</option>
+                  }
+                </select>
               </div>
               <div>
                 <span class="text-stone-400 block mb-1 font-medium">File Format</span>
@@ -168,6 +176,19 @@ export class FileDetailsModalComponent {
     if (confirm(`Are you sure you want to delete "${file.originalName}"?`)) {
       await this.fileService.deleteFile(file.id, file.originalName);
       this.fileService.closeFileDetailsModal();
+    }
+  }
+
+  async onMoveFolder(file: any, event: Event) {
+    const val = (event.target as HTMLSelectElement).value;
+    const fId = val === '' ? null : Number(val);
+    try {
+      await this.fileService.moveFileToFolder(file.id, fId);
+      file.folderId = fId;
+      const targetFolder = this.fileService.allFolders().find(f => f.id === fId);
+      file.folder = targetFolder ? { id: targetFolder.id, name: targetFolder.name } : null;
+    } catch {
+      // toast is handled in file.service
     }
   }
 }

@@ -3,10 +3,13 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FileService } from '../../core/services/file.service';
 import { AuthService } from '../../core/services/auth.service';
+import { FolderItem } from '../../core/models/folder.model';
 import {
   LucideAngularModule,
   Home,
   Folder,
+  FolderPlus,
+  FolderOpen,
   LayoutDashboard,
   Users,
   Share2,
@@ -97,7 +100,10 @@ import {
           <nav class="space-y-1">
             <a
               routerLink="/my-files"
-              routerLinkActive="bg-[#e9e6e0] text-stone-900 font-semibold shadow-xs"
+              (click)="fileService.navigateToFolder(null)"
+              [class.bg-[#e9e6e0]]="router.url === '/my-files' && !fileService.currentFolder()"
+              [class.text-stone-900]="router.url === '/my-files' && !fileService.currentFolder()"
+              [class.font-semibold]="router.url === '/my-files' && !fileService.currentFolder()"
               class="group flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium text-stone-700 hover:bg-[#eae7e2] transition-colors"
             >
               <lucide-icon [img]="Folder" class="w-4 h-4 text-stone-800" [strokeWidth]="2"></lucide-icon>
@@ -131,6 +137,101 @@ import {
               <span>Shared by me</span>
             </a>
           </nav>
+
+          <!-- Folders Tree Section (Collapsible Hierarchical Tree) -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between px-2 py-1">
+              <button
+                type="button"
+                (click)="foldersOpen.set(!foldersOpen())"
+                class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-stone-500 hover:text-stone-800 transition"
+              >
+                <lucide-icon
+                  [img]="foldersOpen() ? ChevronDown : ChevronRight"
+                  class="w-3.5 h-3.5 text-stone-500"
+                  [strokeWidth]="2"
+                ></lucide-icon>
+                <span>Folders</span>
+              </button>
+              <button
+                type="button"
+                (click)="fileService.openCreateFolderModal()"
+                class="p-1 rounded-md text-stone-400 hover:text-stone-800 hover:bg-stone-200/60 transition"
+                title="Create folder"
+              >
+                <lucide-icon [img]="FolderPlus" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
+              </button>
+            </div>
+
+            @if (foldersOpen()) {
+              <div class="space-y-0.5 pl-1 pt-0.5 max-h-56 overflow-y-auto">
+                @for (folder of fileService.folderTree(); track folder.id) {
+                  <div class="space-y-0.5">
+                    <!-- Root level folder -->
+                    <button
+                      type="button"
+                      (click)="navigateToFolder(folder)"
+                      [class.bg-[#e9e6e0]]="fileService.currentFolder()?.id === folder.id"
+                      [class.text-stone-900]="fileService.currentFolder()?.id === folder.id"
+                      [class.font-semibold]="fileService.currentFolder()?.id === folder.id"
+                      class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-stone-700 hover:bg-[#eae7e2] transition text-left group"
+                    >
+                      <div class="flex items-center gap-2 min-w-0">
+                        <lucide-icon
+                          [img]="fileService.currentFolder()?.id === folder.id ? FolderOpen : Folder"
+                          class="w-3.5 h-3.5 text-amber-600 shrink-0"
+                          [strokeWidth]="2"
+                        ></lucide-icon>
+                        <span class="truncate">{{ folder.name }}</span>
+                      </div>
+                      @if (folder.fileCount) {
+                        <span class="text-[10px] text-stone-400 group-hover:text-stone-600 shrink-0">{{ folder.fileCount }}</span>
+                      }
+                    </button>
+
+                    <!-- Level 2 Subfolders -->
+                    @if (folder.children && folder.children.length > 0) {
+                      <div class="pl-3.5 space-y-0.5 border-l border-stone-200/80 ml-2">
+                        @for (child of folder.children; track child.id) {
+                          <button
+                            type="button"
+                            (click)="navigateToFolder(child)"
+                            [class.bg-[#e9e6e0]]="fileService.currentFolder()?.id === child.id"
+                            [class.text-stone-900]="fileService.currentFolder()?.id === child.id"
+                            [class.font-semibold]="fileService.currentFolder()?.id === child.id"
+                            class="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs font-medium text-stone-600 hover:bg-[#eae7e2] transition text-left group"
+                          >
+                            <div class="flex items-center gap-1.5 min-w-0">
+                              <lucide-icon
+                                [img]="fileService.currentFolder()?.id === child.id ? FolderOpen : Folder"
+                                class="w-3 h-3 text-amber-600 shrink-0"
+                                [strokeWidth]="2"
+                              ></lucide-icon>
+                              <span class="truncate">{{ child.name }}</span>
+                            </div>
+                            @if (child.fileCount) {
+                              <span class="text-[10px] text-stone-400 shrink-0">{{ child.fileCount }}</span>
+                            }
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
+                } @empty {
+                  <div class="px-2 py-1 text-xs text-stone-400 flex items-center justify-between">
+                    <span>No folders</span>
+                    <button
+                      type="button"
+                      (click)="fileService.openCreateFolderModal()"
+                      class="text-blue-600 hover:underline text-[11px] font-medium"
+                    >
+                      + New
+                    </button>
+                  </div>
+                }
+              </div>
+            }
+          </div>
 
           <!-- Starred Section (Collapsible) -->
           <div class="space-y-1">
@@ -190,12 +291,15 @@ import {
 export class SidebarComponent {
   readonly fileService = inject(FileService);
   readonly authService = inject(AuthService);
-  private readonly router = inject(Router);
+  readonly router = inject(Router);
 
-  starredOpen = signal(true);
+  starredOpen = signal(false);
+  foldersOpen = signal(true);
 
   readonly Home = Home;
   readonly Folder = Folder;
+  readonly FolderPlus = FolderPlus;
+  readonly FolderOpen = FolderOpen;
   readonly LayoutDashboard = LayoutDashboard;
   readonly Users = Users;
   readonly Share2 = Share2;
@@ -205,6 +309,11 @@ export class SidebarComponent {
   readonly Video = Video;
   readonly FileText = FileText;
   readonly FileSpreadsheet = FileSpreadsheet;
+
+  navigateToFolder(folder: FolderItem) {
+    this.fileService.navigateToFolder(folder);
+    this.router.navigate(['/my-files']);
+  }
 
   formattedUsed = computed(() => {
     const bytes = this.fileService.statistics().totalStorageBytes;

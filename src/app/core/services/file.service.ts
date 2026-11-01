@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { ToastService } from './toast.service';
 import { AuthService } from './auth.service';
 import { FileItem, FileListResponse, FileStatistics, FileVisibility, PreviewFile } from '../models/file.model';
-import { FolderItem } from '../models/folder.model';
+import { FolderItem, FolderTreeNode } from '../models/folder.model';
 import { FileShare, SharedWithMeItem, SharePermission } from '../models/share.model';
 import { PublicFileInfo, ShareLink } from '../models/share-link.model';
 import { environment } from '../../../environments/environment';
@@ -43,8 +43,30 @@ export class FileService {
 
   // Folder signals
   folders = signal<FolderItem[]>([]);
+  allFolders = signal<FolderItem[]>([]);
   currentFolder = signal<FolderItem | null>(null);
   folderBreadcrumbs = signal<{ id: number | null; name: string }[]>([{ id: null, name: 'My Files' }]);
+
+  folderTree = computed<FolderTreeNode[]>(() => {
+    const list = this.allFolders();
+    const map = new Map<number, FolderTreeNode>();
+    const roots: FolderTreeNode[] = [];
+
+    list.forEach((f) => {
+      map.set(f.id, { ...f, children: [] });
+    });
+
+    list.forEach((f) => {
+      const node = map.get(f.id)!;
+      if (f.parentId && map.has(f.parentId)) {
+        map.get(f.parentId)!.children!.push(node);
+      } else {
+        roots.push(node);
+      }
+    });
+
+    return roots;
+  });
 
   // Data signals
   files = signal<FileItem[]>([]);
@@ -74,6 +96,7 @@ export class FileService {
     this.fetchSharedWithMe();
     this.fetchSharedByMe();
     this.fetchFolders(currentFolderId);
+    this.fetchAllFolders();
   }
 
   filteredFiles = computed<FileItem[]>(() => {
@@ -226,6 +249,20 @@ export class FileService {
     }
   }
 
+  async fetchAllFolders(): Promise<FolderItem[]> {
+    try {
+      const res = await firstValueFrom(
+        this.http.get<{ data: FolderItem[] }>(`${environment.apiUrl}/folders`)
+      );
+      const list = res?.data || [];
+      this.allFolders.set(list);
+      return list;
+    } catch (err: any) {
+      console.error('Failed to fetch all folders from API', err);
+      return [];
+    }
+  }
+
   async createFolder(name: string, parentId?: number | null): Promise<FolderItem> {
     try {
       const res = await firstValueFrom(
@@ -236,6 +273,7 @@ export class FileService {
       );
       this.toast.success(`Created folder "${name}"!`);
       await this.fetchFolders(this.currentFolder()?.id || null);
+      await this.fetchAllFolders();
       return res.data;
     } catch (err: any) {
       const msg = err?.error?.message || err?.message || 'Failed to create folder';
@@ -253,6 +291,7 @@ export class FileService {
       );
       this.toast.success(`Renamed folder to "${name}"!`);
       await this.fetchFolders(this.currentFolder()?.id || null);
+      await this.fetchAllFolders();
       return res.data;
     } catch (err: any) {
       const msg = err?.error?.message || err?.message || 'Failed to rename folder';
@@ -268,6 +307,7 @@ export class FileService {
       );
       this.toast.success('Folder deleted successfully');
       await this.fetchFolders(this.currentFolder()?.id || null);
+      await this.fetchAllFolders();
       this.triggerRefresh();
     } catch (err: any) {
       const msg = err?.error?.message || err?.message || 'Failed to delete folder';

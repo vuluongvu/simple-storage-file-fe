@@ -8,3 +8,7 @@ export interface FolderItem {
   fileCount?: number;
   breadcrumbs?: { id: number; name: string }[];
 }
+
+export interface FolderTreeNode extends FolderItem {
+  children?: FolderTreeNode[];
+}
