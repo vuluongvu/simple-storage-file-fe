@@ -487,6 +487,18 @@ export class FilePreviewModalComponent implements OnDestroy {
     const ext = this.getFileExtension(filename).toLowerCase();
     const mime = (mimeType || '').toLowerCase();
 
+    // Office documents, compressed archives, and binary files are NOT plain text
+    if (
+      ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp', 'zip', 'rar', '7z', 'tar', 'gz', 'exe', 'bin'].includes(ext) ||
+      mime.includes('officedocument') ||
+      mime.includes('msword') ||
+      mime.includes('ms-excel') ||
+      mime.includes('ms-powerpoint') ||
+      mime.includes('zip')
+    ) {
+      return 'other';
+    }
+
     if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext)) {
       return 'image';
     }
@@ -501,10 +513,11 @@ export class FilePreviewModalComponent implements OnDestroy {
     }
     if (
       mime.startsWith('text/') ||
-      mime.includes('json') ||
+      mime === 'application/json' ||
+      mime === 'application/xml' ||
+      mime === 'text/xml' ||
       mime.includes('javascript') ||
       mime.includes('typescript') ||
-      mime.includes('xml') ||
       [
         'txt', 'md', 'markdown', 'json', 'csv', 'ts', 'js', 'jsx', 'tsx',
         'html', 'htm', 'css', 'scss', 'xml', 'yaml', 'yml', 'log',

@@ -1,8 +1,9 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideAngularModule, X, UploadCloud, Lock, Users, Globe } from 'lucide-angular';
+import { LucideAngularModule, X, UploadCloud, Lock, Users, Globe, AlertTriangle } from 'lucide-angular';
 import { FileService } from '../../../core/services/file.service';
+import { ToastService } from '../../../core/services/toast.service';
 import { FileVisibility } from '../../../core/models/file.model';
 import { FileSizePipe } from '../../pipes/file-size.pipe';
 
@@ -71,6 +72,18 @@ import { FileSizePipe } from '../../pipes/file-size.pipe';
                 <lucide-icon [img]="X" class="w-5 h-5" [strokeWidth]="2"></lucide-icon>
               </button>
             </div>
+
+            @if (isOverVercelLimit()) {
+              <div class="mt-3.5 p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                <lucide-icon [img]="AlertTriangle" class="w-5 h-5 text-amber-600 shrink-0 mt-0.5" [strokeWidth]="2"></lucide-icon>
+                <div class="leading-relaxed">
+                  <p class="font-bold text-[13px] text-amber-950">Vượt giới hạn Vercel (4.5 MB)</p>
+                  <p class="mt-0.5 text-stone-600">
+                    Nền tảng Vercel Cloud giới hạn mỗi request tối đa <strong>4.5 MB</strong> (file của bạn là <strong>{{ selectedFile()!.size | fileSize }}</strong>). Vui lòng chọn file dưới 4.5 MB khi dùng trên Vercel, hoặc chạy bản Localhost để upload file tới <strong>50 MB</strong>.
+                  </p>
+                </div>
+              </div>
+            }
           }
 
           <!-- Visibility Choice -->
@@ -142,7 +155,7 @@ import { FileSizePipe } from '../../pipes/file-size.pipe';
             </button>
             <button
               type="button"
-              [disabled]="!selectedFile() || isUploading()"
+              [disabled]="!selectedFile() || isUploading() || isOverVercelLimit()"
               (click)="startUpload()"
               class="px-6 py-2.5 rounded-2xl bg-brownblack hover:bg-brownblack-800 text-white text-sm font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
             >
@@ -160,17 +173,32 @@ import { FileSizePipe } from '../../pipes/file-size.pipe';
 })
 export class UploadModalComponent {
   readonly fileService = inject(FileService);
+  private readonly toast = inject(ToastService);
+
   readonly X = X;
   readonly UploadCloud = UploadCloud;
   readonly Lock = Lock;
   readonly Users = Users;
   readonly Globe = Globe;
+  readonly AlertTriangle = AlertTriangle;
 
   isDragging = signal(false);
   selectedFile = signal<File | null>(null);
   visibility = signal<FileVisibility>('PRIVATE');
   isUploading = signal(false);
   uploadProgress = signal(0);
+
+  isVercel = computed(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.hostname.includes('vercel.app');
+    }
+    return false;
+  });
+
+  isOverVercelLimit = computed(() => {
+    const file = this.selectedFile();
+    return this.isVercel() && !!file && file.size > 4.5 * 1024 * 1024;
+  });
 
   onDragOver(e: DragEvent) {
     e.preventDefault();
@@ -205,6 +233,11 @@ export class UploadModalComponent {
   startUpload() {
     const file = this.selectedFile();
     if (!file) return;
+
+    if (this.isOverVercelLimit()) {
+      this.toast.error('File vượt quá giới hạn 4.5 MB của Vercel Cloud.');
+      return;
+    }
 
     this.isUploading.set(true);
     this.uploadProgress.set(20);
