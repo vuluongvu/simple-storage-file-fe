@@ -45,7 +45,7 @@ import {
           <div>
             <span class="text-xs font-bold tracking-wider text-stone-400 uppercase">Cloud Storage</span>
             <div class="flex items-baseline gap-2 mt-1">
-              <span class="text-3xl font-extrabold text-stone-900">{{ (totalSize() / (1024 * 1024 * 1024)).toFixed(2) }} GB</span>
+              <span class="text-3xl font-extrabold text-stone-900">{{ formattedUsedStorage() }}</span>
               <span class="text-stone-400 text-sm font-medium">used of 50.00 GB (Pro Plan)</span>
             </div>
           </div>
@@ -59,11 +59,11 @@ import {
 
         <!-- Multi-segment Storage Bar -->
         <div class="mt-6 space-y-2">
-          <div class="w-full h-3.5 bg-stone-100 rounded-full overflow-hidden flex">
-            <div class="bg-blue-500 h-full transition-all" [style.width.%]="videoPct()" title="Videos"></div>
-            <div class="bg-rose-500 h-full transition-all" [style.width.%]="pdfPct()" title="PDF Documents"></div>
-            <div class="bg-emerald-500 h-full transition-all" [style.width.%]="sheetPct()" title="Spreadsheets"></div>
-            <div class="bg-amber-500 h-full transition-all" [style.width.%]="otherPct()" title="Other Assets"></div>
+          <div class="w-full h-3.5 bg-stone-100 rounded-full overflow-hidden flex shadow-inner">
+            <div class="bg-blue-500 h-full transition-all duration-500" [style.width.%]="videoPct()" [title]="'Videos: ' + (videoBytes() | fileSize)"></div>
+            <div class="bg-rose-500 h-full transition-all duration-500" [style.width.%]="pdfPct()" [title]="'PDF Documents: ' + (pdfBytes() | fileSize)"></div>
+            <div class="bg-emerald-500 h-full transition-all duration-500" [style.width.%]="sheetPct()" [title]="'Spreadsheets: ' + (sheetBytes() | fileSize)"></div>
+            <div class="bg-amber-500 h-full transition-all duration-500" [style.width.%]="otherPct()" [title]="'Other Assets: ' + (otherBytes() | fileSize)"></div>
           </div>
 
           <!-- Legend -->
@@ -233,6 +233,18 @@ export class DashboardComponent implements OnInit {
     return this.fileService.statistics().totalStorageBytes;
   });
 
+  formattedUsedStorage = computed(() => {
+    const bytes = this.totalSize();
+    if (!bytes || bytes === 0) return '0.00 GB';
+    if (bytes < 1024 * 1024) {
+      return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+  });
+
   readonly maxQuota = 50 * 1024 * 1024 * 1024; // 50 GB
 
   videoBytes = computed(() => {
@@ -259,10 +271,35 @@ export class DashboardComponent implements OnInit {
     return Math.max(0, total - sum);
   });
 
-  videoPct = computed(() => Math.min(100, (this.videoBytes() / this.maxQuota) * 100));
-  pdfPct = computed(() => Math.min(100, (this.pdfBytes() / this.maxQuota) * 100));
-  sheetPct = computed(() => Math.min(100, (this.sheetBytes() / this.maxQuota) * 100));
-  otherPct = computed(() => Math.min(100, (this.otherBytes() / this.maxQuota) * 100));
+  // Calculate visual segment widths so small files are clearly visible in the bar
+  videoPct = computed(() => {
+    const bytes = this.videoBytes();
+    if (bytes === 0) return 0;
+    const raw = (bytes / this.maxQuota) * 100;
+    return Math.max(2.5, Math.min(100, raw));
+  });
+
+  pdfPct = computed(() => {
+    const bytes = this.pdfBytes();
+    if (bytes === 0) return 0;
+    const raw = (bytes / this.maxQuota) * 100;
+    return Math.max(2.5, Math.min(100, raw));
+  });
+
+  sheetPct = computed(() => {
+    const bytes = this.sheetBytes();
+    if (bytes === 0) return 0;
+    const raw = (bytes / this.maxQuota) * 100;
+    return Math.max(2.5, Math.min(100, raw));
+  });
+
+  otherPct = computed(() => {
+    const bytes = this.otherBytes();
+    if (bytes === 0) return 0;
+    const raw = (bytes / this.maxQuota) * 100;
+    return Math.max(3.5, Math.min(100, raw));
+  });
+
   freeSpaceBytes = computed(() => Math.max(0, this.maxQuota - this.totalSize()));
 
   sharedByMeCount = computed(() => {
