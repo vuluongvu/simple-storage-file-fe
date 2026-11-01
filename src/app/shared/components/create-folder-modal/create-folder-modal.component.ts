@@ -44,6 +44,25 @@ import { FileService } from '../../../core/services/file.service';
           <!-- Body Form -->
           <form (ngSubmit)="onSubmit()" class="mt-5 space-y-4">
             <div>
+              <label for="parentFolder" class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2">
+                Create Inside (Vị trí thư mục cha)
+              </label>
+              <select
+                id="parentFolder"
+                [(ngModel)]="selectedParentId"
+                name="parentFolder"
+                class="w-full px-4 py-2.5 rounded-2xl border border-stone-200 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 transition bg-white cursor-pointer"
+              >
+                <option [ngValue]="null">📁 My Files (Root)</option>
+                @for (f of fileService.formattedFolderList(); track f.id) {
+                  <option [ngValue]="f.id">
+                    {{ '— '.repeat(f.level) }}📁 {{ f.name }} ({{ f.path }})
+                  </option>
+                }
+              </select>
+            </div>
+
+            <div>
               <label for="folderName" class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2">
                 Folder Name
               </label>
@@ -94,12 +113,14 @@ export class CreateFolderModalComponent {
   @ViewChild('nameInput') nameInput?: ElementRef<HTMLInputElement>;
 
   folderName = '';
+  selectedParentId: number | null = null;
   isSubmitting = signal(false);
 
   constructor() {
     effect(() => {
       if (this.fileService.isCreateFolderModalOpen()) {
         this.folderName = '';
+        this.selectedParentId = this.fileService.currentFolder()?.id || null;
         setTimeout(() => {
           this.nameInput?.nativeElement?.focus();
         }, 100);
@@ -119,8 +140,7 @@ export class CreateFolderModalComponent {
 
     this.isSubmitting.set(true);
     try {
-      const parentId = this.fileService.currentFolder()?.id || null;
-      await this.fileService.createFolder(name, parentId);
+      await this.fileService.createFolder(name, this.selectedParentId);
       this.close();
     } catch {
       this.isSubmitting.set(false);

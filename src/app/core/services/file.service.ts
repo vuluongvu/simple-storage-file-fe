@@ -68,6 +68,41 @@ export class FileService {
     return roots;
   });
 
+  formattedFolderList = computed<{ id: number; path: string; name: string; level: number }[]>(() => {
+    const list = this.allFolders();
+    const map = new Map<number, FolderItem>();
+    list.forEach((f) => map.set(f.id, f));
+
+    const getPath = (f: FolderItem): string => {
+      const parts = [f.name];
+      let cur: FolderItem = f;
+      while (cur.parentId && map.has(cur.parentId)) {
+        cur = map.get(cur.parentId)!;
+        parts.unshift(cur.name);
+      }
+      return parts.join(' / ');
+    };
+
+    const getLevel = (f: FolderItem): number => {
+      let lvl = 0;
+      let cur: FolderItem = f;
+      while (cur.parentId && map.has(cur.parentId)) {
+        cur = map.get(cur.parentId)!;
+        lvl++;
+      }
+      return lvl;
+    };
+
+    return list
+      .map((f) => ({
+        id: f.id,
+        name: f.name,
+        path: getPath(f),
+        level: getLevel(f),
+      }))
+      .sort((a, b) => a.path.localeCompare(b.path));
+  });
+
   // Data signals
   files = signal<FileItem[]>([]);
   statistics = signal<FileStatistics>({
@@ -316,6 +351,24 @@ export class FileService {
     }
   }
 
+  computeBreadcrumbs(folderId: number): { id: number | null; name: string }[] {
+    const map = new Map<number, FolderItem>();
+    this.allFolders().forEach((f) => map.set(f.id, f));
+
+    const chain: { id: number; name: string }[] = [];
+    let curId: number | null = folderId;
+    const visited = new Set<number>();
+
+    while (curId && map.has(curId) && !visited.has(curId)) {
+      visited.add(curId);
+      const curFolder: FolderItem = map.get(curId)!;
+      chain.unshift({ id: curFolder.id, name: curFolder.name });
+      curId = curFolder.parentId;
+    }
+
+    return [{ id: null, name: 'My Files' }, ...chain];
+  }
+
   async navigateToFolder(folder: FolderItem | null): Promise<void> {
     this.currentFolder.set(folder);
     if (!folder) {
@@ -323,10 +376,22 @@ export class FileService {
       await this.fetchFolders(null);
       await this.fetchFiles(undefined, undefined, 1, 100, 'root');
     } else {
-      const crumbs = folder.breadcrumbs
-        ? [{ id: null, name: 'My Files' }, ...folder.breadcrumbs]
-        : [{ id: null, name: 'My Files' }, { id: folder.id, name: folder.name }];
+      // Fetch full recursive breadcrumbs from backend or fallback to computed
+      let crumbs = this.computeBreadcrumbs(folder.id);
       this.folderBreadcrumbs.set(crumbs);
+
+      try {
+        const details = await firstValueFrom(
+          this.http.get<{ data: FolderItem }>(`${environment.apiUrl}/folders/${folder.id}`)
+        );
+        if (details?.data?.breadcrumbs && details.data.breadcrumbs.length > 0) {
+          crumbs = [{ id: null, name: 'My Files' }, ...details.data.breadcrumbs];
+          this.folderBreadcrumbs.set(crumbs);
+        }
+      } catch (err) {
+        // computeBreadcrumbs was already set
+      }
+
       await this.fetchFolders(folder.id);
       await this.fetchFiles(undefined, undefined, 1, 100, folder.id);
     }

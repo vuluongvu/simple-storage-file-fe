@@ -73,9 +73,9 @@ import { FileThumbnailComponent } from '../file-thumbnail/file-thumbnail.compone
                   class="w-full text-xs font-semibold text-stone-900 bg-white border border-stone-200 rounded-lg py-1 px-1.5 focus:ring-1 focus:ring-stone-400 focus:outline-hidden cursor-pointer"
                   title="Move to another folder"
                 >
-                  <option value="">Root (My Files)</option>
-                  @for (f of fileService.allFolders(); track f.id) {
-                    <option [value]="f.id">{{ f.name }}</option>
+                  <option value="">📁 Root (My Files)</option>
+                  @for (f of fileService.formattedFolderList(); track f.id) {
+                    <option [value]="f.id">{{ '— '.repeat(f.level) }}📁 {{ f.name }} ({{ f.path }})</option>
                   }
                 </select>
               </div>

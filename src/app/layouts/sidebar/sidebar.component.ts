@@ -164,60 +164,62 @@ import {
             </div>
 
             @if (foldersOpen()) {
-              <div class="space-y-0.5 pl-1 pt-0.5 max-h-56 overflow-y-auto">
-                @for (folder of fileService.folderTree(); track folder.id) {
-                  <div class="space-y-0.5">
-                    <!-- Root level folder -->
-                    <button
-                      type="button"
-                      (click)="navigateToFolder(folder)"
-                      [class.bg-[#e9e6e0]]="fileService.currentFolder()?.id === folder.id"
-                      [class.text-stone-900]="fileService.currentFolder()?.id === folder.id"
-                      [class.font-semibold]="fileService.currentFolder()?.id === folder.id"
-                      class="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-medium text-stone-700 hover:bg-[#eae7e2] transition text-left group"
-                    >
-                      <div class="flex items-center gap-2 min-w-0">
-                        <lucide-icon
-                          [img]="fileService.currentFolder()?.id === folder.id ? FolderOpen : Folder"
-                          class="w-3.5 h-3.5 text-amber-600 shrink-0"
-                          [strokeWidth]="2"
-                        ></lucide-icon>
-                        <span class="truncate">{{ folder.name }}</span>
-                      </div>
-                      @if (folder.fileCount) {
-                        <span class="text-[10px] text-stone-400 group-hover:text-stone-600 shrink-0">{{ folder.fileCount }}</span>
-                      }
-                    </button>
-
-                    <!-- Level 2 Subfolders -->
-                    @if (folder.children && folder.children.length > 0) {
-                      <div class="pl-3.5 space-y-0.5 border-l border-stone-200/80 ml-2">
-                        @for (child of folder.children; track child.id) {
-                          <button
-                            type="button"
-                            (click)="navigateToFolder(child)"
-                            [class.bg-[#e9e6e0]]="fileService.currentFolder()?.id === child.id"
-                            [class.text-stone-900]="fileService.currentFolder()?.id === child.id"
-                            [class.font-semibold]="fileService.currentFolder()?.id === child.id"
-                            class="w-full flex items-center justify-between px-2 py-1 rounded-lg text-xs font-medium text-stone-600 hover:bg-[#eae7e2] transition text-left group"
-                          >
-                            <div class="flex items-center gap-1.5 min-w-0">
+              <div class="space-y-0.5 pl-1 pt-0.5 max-h-64 overflow-y-auto">
+                <ng-template #folderTreeTemplate let-nodes let-level="level">
+                  @for (node of nodes; track node.id) {
+                    <div class="space-y-0.5">
+                      <button
+                        type="button"
+                        (click)="navigateToFolder(node)"
+                        [class.bg-[#e9e6e0]]="fileService.currentFolder()?.id === node.id"
+                        [class.text-stone-900]="fileService.currentFolder()?.id === node.id"
+                        [class.font-semibold]="fileService.currentFolder()?.id === node.id"
+                        class="w-full flex items-center justify-between py-1.5 pr-2 rounded-lg text-xs font-medium text-stone-700 hover:bg-[#eae7e2] transition text-left group"
+                        [style.paddingLeft.px]="level * 10 + 6"
+                      >
+                        <div class="flex items-center gap-1.5 min-w-0">
+                          @if (node.children && node.children.length > 0) {
+                            <span
+                              (click)="$event.stopPropagation(); toggleNode(node.id)"
+                              class="w-3.5 h-3.5 flex items-center justify-center text-stone-400 hover:text-stone-700 transition cursor-pointer"
+                            >
                               <lucide-icon
-                                [img]="fileService.currentFolder()?.id === child.id ? FolderOpen : Folder"
-                                class="w-3 h-3 text-amber-600 shrink-0"
-                                [strokeWidth]="2"
+                                [img]="isNodeExpanded(node.id) ? ChevronDown : ChevronRight"
+                                class="w-3 h-3 text-stone-500"
+                                [strokeWidth]="2.5"
                               ></lucide-icon>
-                              <span class="truncate">{{ child.name }}</span>
-                            </div>
-                            @if (child.fileCount) {
-                              <span class="text-[10px] text-stone-400 shrink-0">{{ child.fileCount }}</span>
-                            }
-                          </button>
+                            </span>
+                          } @else {
+                            <span class="w-2.5"></span>
+                          }
+                          <lucide-icon
+                            [img]="fileService.currentFolder()?.id === node.id ? FolderOpen : Folder"
+                            class="w-3.5 h-3.5 text-amber-600 shrink-0"
+                            [strokeWidth]="2"
+                          ></lucide-icon>
+                          <span class="truncate">{{ node.name }}</span>
+                        </div>
+                        @if (node.fileCount) {
+                          <span class="text-[10px] text-stone-400 group-hover:text-stone-600 shrink-0">{{ node.fileCount }}</span>
                         }
-                      </div>
-                    }
-                  </div>
-                } @empty {
+                      </button>
+
+                      @if (node.children && node.children.length > 0 && isNodeExpanded(node.id)) {
+                        <div class="border-l border-stone-200/80 ml-3">
+                          <ng-container
+                            *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: node.children, level: level + 1 }"
+                          ></ng-container>
+                        </div>
+                      }
+                    </div>
+                  }
+                </ng-template>
+
+                @if (fileService.folderTree().length > 0) {
+                  <ng-container
+                    *ngTemplateOutlet="folderTreeTemplate; context: { $implicit: fileService.folderTree(), level: 0 }"
+                  ></ng-container>
+                } @else {
                   <div class="px-2 py-1 text-xs text-stone-400 flex items-center justify-between">
                     <span>No folders</span>
                     <button
@@ -295,6 +297,23 @@ export class SidebarComponent {
 
   starredOpen = signal(false);
   foldersOpen = signal(true);
+  collapsedNodeIds = signal<Set<number>>(new Set<number>());
+
+  toggleNode(id: number) {
+    this.collapsedNodeIds.update((set) => {
+      const next = new Set(set);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  isNodeExpanded(id: number): boolean {
+    return !this.collapsedNodeIds().has(id);
+  }
 
   readonly Home = Home;
   readonly Folder = Folder;
