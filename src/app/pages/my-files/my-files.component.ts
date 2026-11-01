@@ -30,6 +30,8 @@ import {
   Trash2,
   Eye,
   ChevronRight,
+  ArrowLeft,
+  Home,
 } from 'lucide-angular';
 
 type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheets' | 'Public';
@@ -39,96 +41,101 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
   standalone: true,
   imports: [CommonModule, FormsModule, FileSizePipe, LucideAngularModule, FileThumbnailComponent],
   template: `
-    <div class="space-y-8 max-w-6xl mx-auto pb-16">
-      <!-- 1. TOP ACTION CARDS (Minimalist SaaS action row) -->
-      <section class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <!-- 1.1 + Create (Upload modal) -->
-        <button
-          (click)="fileService.openUploadModal()"
-          class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
-        >
-          <div class="w-6 h-6 flex items-center justify-center text-stone-800">
-            <lucide-icon [img]="Plus" class="w-5 h-5 text-stone-800" [strokeWidth]="2.5"></lucide-icon>
-          </div>
-          <span class="text-sm font-semibold text-stone-900">Create</span>
-        </button>
+    <div class="space-y-6 max-w-6xl mx-auto pb-16 select-none">
+      <!-- 1. LOCATION & FOLDER HEADER (Crystal-clear "You are here" bar) -->
+      <header class="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-xs">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div class="flex items-start sm:items-center gap-3">
+            @if (fileService.currentFolder()) {
+              <button
+                type="button"
+                (click)="navigateUp()"
+                class="mt-0.5 sm:mt-0 p-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition flex items-center justify-center shrink-0 shadow-2xs group cursor-pointer"
+                title="Go up to parent folder"
+              >
+                <lucide-icon [img]="ArrowLeft" class="w-4.5 h-4.5 text-stone-700 group-hover:-translate-x-0.5 transition-transform" [strokeWidth]="2.5"></lucide-icon>
+              </button>
+            }
 
-        <!-- 1.2 Upload (White card with subtle border) -->
-        <button
-          (click)="fileService.openUploadModal()"
-          class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
-        >
-          <div class="w-6 h-6 flex items-center justify-center text-stone-800">
-            <lucide-icon [img]="Upload" class="w-5 h-5 text-stone-800" [strokeWidth]="2"></lucide-icon>
-          </div>
-          <span class="text-sm font-semibold text-stone-900">Upload</span>
-        </button>
+            <div class="space-y-1 min-w-0">
+              <!-- Full Path Breadcrumbs -->
+              <nav class="flex items-center gap-1.5 text-xs text-stone-500 overflow-x-auto whitespace-nowrap">
+                @for (crumb of fileService.folderBreadcrumbs(); track $index; let last = $last) {
+                  @if (!last) {
+                    <button
+                      type="button"
+                      (click)="onBreadcrumbClick(crumb)"
+                      class="hover:text-blue-600 font-medium transition hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      @if ($index === 0) {
+                        <lucide-icon [img]="Home" class="w-3.5 h-3.5 text-stone-400"></lucide-icon>
+                      }
+                      <span>{{ crumb.name }}</span>
+                    </button>
+                    <lucide-icon [img]="ChevronRight" class="w-3 h-3 text-stone-400 shrink-0"></lucide-icon>
+                  } @else {
+                    <span class="text-stone-900 font-bold inline-flex items-center gap-1">
+                      @if ($index === 0) {
+                        <lucide-icon [img]="Home" class="w-3.5 h-3.5 text-stone-700"></lucide-icon>
+                      } @else {
+                        <lucide-icon [img]="FolderOpen" class="w-3.5 h-3.5 text-amber-600"></lucide-icon>
+                      }
+                      <span>{{ crumb.name }}</span>
+                    </span>
+                  }
+                }
+              </nav>
 
-        <!-- 1.3 Create folder -->
-        <button
-          (click)="fileService.openCreateFolderModal()"
-          class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
-        >
-          <div class="w-6 h-6 flex items-center justify-center text-stone-800">
-            <lucide-icon [img]="FolderPlus" class="w-5 h-5 text-stone-800" [strokeWidth]="2"></lucide-icon>
+              <!-- Current Title -->
+              <div class="flex items-center gap-2.5">
+                <h1 class="text-2xl font-extrabold tracking-tight text-stone-900 truncate">
+                  {{ fileService.currentFolder() ? fileService.currentFolder()?.name : 'My Files' }}
+                </h1>
+                <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-600 shrink-0">
+                  {{ fileService.currentFolder() ? 'Current Folder' : 'Root Directory' }}
+                </span>
+              </div>
+            </div>
           </div>
-          <span class="text-sm font-semibold text-stone-900">Create folder</span>
-        </button>
 
-        <!-- 1.4 Edit PDF -->
-        <button
-          (click)="quickEditPdfDemo()"
-          class="flex flex-col justify-between p-4 h-28 rounded-2xl bg-white border border-stone-200/80 hover:border-stone-300 hover:shadow-xs hover:bg-stone-50/50 transition-all text-left group"
-        >
-          <div class="w-6 h-6 flex items-center justify-center text-stone-800">
-            <lucide-icon [img]="FileEdit" class="w-5 h-5 text-stone-800" [strokeWidth]="2"></lucide-icon>
-          </div>
-          <span class="text-sm font-semibold text-stone-900">Edit PDF</span>
-        </button>
-      </section>
-
-      <!-- 2. BREADCRUMB NAVIGATION -->
-      <nav class="flex items-center gap-2 text-sm text-stone-600 bg-stone-50/80 px-4 py-2.5 rounded-xl border border-stone-200/60">
-        @for (crumb of fileService.folderBreadcrumbs(); track $index; let last = $last) {
-          @if (!last) {
+          <!-- Quick Action Buttons on Header -->
+          <div class="flex items-center gap-2 shrink-0 self-end sm:self-auto">
             <button
               type="button"
-              (click)="onBreadcrumbClick(crumb)"
-              class="hover:text-blue-600 font-medium transition flex items-center gap-1.5"
+              (click)="fileService.openCreateFolderModal()"
+              class="px-4 py-2 rounded-xl border border-stone-200 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold shadow-2xs transition inline-flex items-center gap-1.5 cursor-pointer"
             >
-              @if ($index === 0) {
-                <lucide-icon [img]="Folder" class="w-4 h-4 text-stone-500"></lucide-icon>
-              }
-              <span>{{ crumb.name }}</span>
+              <lucide-icon [img]="FolderPlus" class="w-4 h-4 text-stone-600" [strokeWidth]="2"></lucide-icon>
+              <span>New Folder</span>
             </button>
-            <lucide-icon [img]="ChevronRight" class="w-3.5 h-3.5 text-stone-400"></lucide-icon>
-          } @else {
-            <span class="font-semibold text-stone-900 flex items-center gap-1.5">
-              @if ($index === 0) {
-                <lucide-icon [img]="Folder" class="w-4 h-4 text-stone-800"></lucide-icon>
-              }
-              <span>{{ crumb.name }}</span>
-            </span>
-          }
-        }
-      </nav>
+            <button
+              type="button"
+              (click)="fileService.openUploadModal()"
+              class="px-4 py-2 rounded-xl bg-brownblack hover:bg-brownblack-800 text-white text-xs font-semibold shadow-xs transition inline-flex items-center gap-1.5 cursor-pointer"
+            >
+              <lucide-icon [img]="Upload" class="w-4 h-4" [strokeWidth]="2"></lucide-icon>
+              <span>{{ fileService.currentFolder() ? 'Upload to "' + fileService.currentFolder()?.name + '"' : 'Upload File' }}</span>
+            </button>
+          </div>
+        </div>
+      </header>
 
-      <!-- 3. FOLDERS SECTION -->
+      <!-- 2. SUBFOLDERS SECTION -->
       @if (fileService.folders().length > 0) {
         <section class="space-y-3">
           <div class="flex items-center justify-between">
-            <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-500">
-              Folders ({{ fileService.folders().length }})
+            <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">
+              {{ fileService.currentFolder() ? 'Subfolders inside "' + fileService.currentFolder()?.name + '"' : 'Folders' }} ({{ fileService.folders().length }})
             </h3>
           </div>
           <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             @for (folder of fileService.folders(); track folder.id) {
               <div
                 (click)="fileService.navigateToFolder(folder)"
-                class="group flex items-center justify-between p-3.5 bg-white border border-stone-200/80 hover:border-blue-400 hover:shadow-xs rounded-xl cursor-pointer transition select-none"
+                class="group flex items-center justify-between p-3.5 bg-white border border-stone-200/90 hover:border-amber-400 hover:shadow-xs rounded-xl cursor-pointer transition select-none"
               >
                 <div class="flex items-center gap-3 min-w-0">
-                  <div class="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/60 flex items-center justify-center text-amber-600 shrink-0 group-hover:bg-amber-100 group-hover:scale-105 transition">
+                  <div class="w-9 h-9 rounded-lg bg-amber-50 border border-amber-200/70 flex items-center justify-center text-amber-600 shrink-0 group-hover:bg-amber-100 group-hover:scale-105 transition">
                     <lucide-icon [img]="Folder" class="w-5 h-5" [strokeWidth]="2"></lucide-icon>
                   </div>
                   <div class="min-w-0">
@@ -136,7 +143,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
                       {{ folder.name }}
                     </p>
                     <p class="text-[11px] text-stone-400">
-                      {{ folder.fileCount || 0 }} files
+                      {{ folder.fileCount || 0 }} {{ folder.fileCount === 1 ? 'file' : 'files' }}
                     </p>
                   </div>
                 </div>
@@ -145,7 +152,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
                 <button
                   type="button"
                   (click)="$event.stopPropagation(); deleteFolder(folder)"
-                  class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                  class="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
                   title="Delete folder"
                 >
                   <lucide-icon [img]="Trash2" class="w-4 h-4" [strokeWidth]="2"></lucide-icon>
@@ -156,54 +163,51 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
         </section>
       }
 
-      <!-- 4. "ALL FILES" SECTION HEADER & FILTER PILLS -->
+      <!-- 3. FILES SECTION -->
       <section class="space-y-4">
         <div class="flex items-center justify-between">
-          <h2 class="text-xl font-bold tracking-tight text-stone-900">
-            {{ fileService.currentFolder() ? fileService.currentFolder()?.name : 'All files' }}
-          </h2>
-          <span class="text-xs text-stone-500 font-medium">
-            {{ filteredFiles().length }} {{ filteredFiles().length === 1 ? 'file' : 'files' }}
-          </span>
-        </div>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-stone-500">
+            {{ fileService.currentFolder() ? 'Files in "' + fileService.currentFolder()?.name + '"' : 'All Files' }} ({{ filteredFiles().length }})
+          </h3>
 
-        <!-- Filter Pills Bar & View Toggle -->
-        <div class="flex items-center justify-between gap-4 overflow-x-auto pb-1">
-          <div class="flex items-center gap-2">
-            @for (filter of filterOptions; track filter) {
-              <button
-                type="button"
-                (click)="activeFilter.set(filter)"
-                [class.bg-stone-100]="activeFilter() === filter"
-                [class.text-stone-900]="activeFilter() === filter"
-                [class.font-semibold]="activeFilter() === filter"
-                [class.text-stone-600]="activeFilter() !== filter"
-                [class.hover:bg-stone-50]="activeFilter() !== filter"
-                class="px-4 py-1.5 rounded-full text-xs transition-colors whitespace-nowrap"
-              >
-                {{ filter }}
-              </button>
-            }
-          </div>
-
-          <!-- List / Grid View Toggle Button -->
-          <div class="flex items-center gap-1 text-stone-500">
-            <button
-              (click)="isGridView.set(!isGridView())"
-              class="p-1.5 rounded-lg hover:bg-stone-100 text-stone-700 transition"
-              [title]="isGridView() ? 'Switch to list view' : 'Switch to grid view'"
-            >
-              @if (isGridView()) {
-                <lucide-icon [img]="List" class="w-4.5 h-4.5" [strokeWidth]="2"></lucide-icon>
-              } @else {
-                <lucide-icon [img]="LayoutGrid" class="w-4.5 h-4.5" [strokeWidth]="2"></lucide-icon>
+          <!-- Filter Pills Bar & View Toggle -->
+          <div class="flex items-center gap-3">
+            <div class="hidden sm:flex items-center gap-1.5 overflow-x-auto">
+              @for (filter of filterOptions; track filter) {
+                <button
+                  type="button"
+                  (click)="activeFilter.set(filter)"
+                  [class.bg-stone-100]="activeFilter() === filter"
+                  [class.text-stone-900]="activeFilter() === filter"
+                  [class.font-semibold]="activeFilter() === filter"
+                  [class.text-stone-600]="activeFilter() !== filter"
+                  [class.hover:bg-stone-50]="activeFilter() !== filter"
+                  class="px-3.5 py-1 rounded-full text-xs transition-colors whitespace-nowrap cursor-pointer"
+                >
+                  {{ filter }}
+                </button>
               }
-            </button>
+            </div>
+
+            <!-- List / Grid View Toggle Button -->
+            <div class="flex items-center gap-1 text-stone-500">
+              <button
+                (click)="isGridView.set(!isGridView())"
+                class="p-1.5 rounded-lg hover:bg-stone-100 text-stone-700 transition cursor-pointer"
+                [title]="isGridView() ? 'Switch to list view' : 'Switch to grid view'"
+              >
+                @if (isGridView()) {
+                  <lucide-icon [img]="List" class="w-4.5 h-4.5" [strokeWidth]="2"></lucide-icon>
+                } @else {
+                  <lucide-icon [img]="LayoutGrid" class="w-4.5 h-4.5" [strokeWidth]="2"></lucide-icon>
+                }
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
-      <!-- 5. FILE LIST -->
+      <!-- 4. FILE LIST / GRID -->
       @if (fileService.isLoading()) {
         <!-- Skeleton Loading State -->
         <div class="space-y-4">
@@ -238,14 +242,14 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
           <div class="mt-4 flex items-center justify-center gap-2">
             <button
               (click)="fileService.openUploadModal()"
-              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5"
+              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5 cursor-pointer"
             >
               <lucide-icon [img]="Upload" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
               <span>Upload file</span>
             </button>
             <button
               (click)="fileService.openCreateFolderModal()"
-              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5"
+              class="px-4 py-2 bg-white hover:bg-stone-50 text-stone-800 text-xs font-semibold rounded-xl border border-stone-300 shadow-2xs transition inline-flex items-center gap-1.5 cursor-pointer"
             >
               <lucide-icon [img]="FolderPlus" class="w-3.5 h-3.5 text-stone-600" [strokeWidth]="2"></lucide-icon>
               <span>New folder</span>
@@ -254,7 +258,7 @@ type FilterType = 'All' | 'Recent' | 'PDFs' | 'Images' | 'Videos' | 'Spreadsheet
         </div>
       } @else if (filteredFiles().length === 0 && fileService.folders().length > 0) {
         <div class="py-12 text-center border border-dashed border-stone-200 rounded-2xl bg-stone-50/40">
-          <p class="text-xs text-stone-500 font-medium">No files in this folder. Drop or upload files using the action card above.</p>
+          <p class="text-xs text-stone-500 font-medium">No files inside "{{ fileService.currentFolder()?.name }}" yet. Upload a file above or click into a subfolder.</p>
         </div>
       } @else if (!isGridView()) {
         <!-- LIST VIEW -->
@@ -473,6 +477,8 @@ export class MyFilesComponent implements OnInit {
   readonly FolderPlus = FolderPlus;
   readonly Folder = Folder;
   readonly ChevronRight = ChevronRight;
+  readonly ArrowLeft = ArrowLeft;
+  readonly Home = Home;
   readonly FileEdit = FileEdit;
   readonly List = List;
   readonly LayoutGrid = LayoutGrid;
@@ -585,11 +591,19 @@ export class MyFilesComponent implements OnInit {
     }
   }
 
+  navigateUp() {
+    const crumbs = this.fileService.folderBreadcrumbs();
+    if (crumbs.length <= 1) return;
+    const parentCrumb = crumbs[crumbs.length - 2];
+    this.onBreadcrumbClick(parentCrumb);
+  }
+
   onBreadcrumbClick(crumb: { id: number | null; name: string }) {
     if (crumb.id === null) {
       this.fileService.navigateToFolder(null);
     } else {
-      this.fileService.navigateToFolder({ id: crumb.id, name: crumb.name } as FolderItem);
+      const target = this.fileService.allFolders().find((f) => f.id === crumb.id);
+      this.fileService.navigateToFolder(target || ({ id: crumb.id, name: crumb.name } as FolderItem));
     }
   }
 
