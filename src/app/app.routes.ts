@@ -3,6 +3,7 @@ import { authGuard } from './core/guards/auth.guard';
 import { MainLayoutComponent } from './layouts/main-layout/main-layout.component';
 import { LoginComponent } from './pages/auth/login/login.component';
 import { RegisterComponent } from './pages/auth/register/register.component';
+import { ForgotPasswordComponent } from './pages/auth/forgot-password/forgot-password.component';
 import { MyFilesComponent } from './pages/my-files/my-files.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { SharedWithMeComponent } from './pages/shared-with-me/shared-with-me.component';
@@ -13,17 +14,25 @@ export const routes: Routes = [
   // Authentication routes
   {
     path: 'auth/login',
-    component: LoginComponent
+    component: LoginComponent,
   },
   {
     path: 'auth/register',
-    component: RegisterComponent
+    component: RegisterComponent,
+  },
+  {
+    path: 'auth/forgot-password',
+    component: ForgotPasswordComponent,
+  },
+  {
+    path: 'auth/reset-password',
+    component: ForgotPasswordComponent,
   },
 
   // Public file access route (unauthenticated)
   {
     path: 'public/files/:token',
-    component: PublicFileComponent
+    component: PublicFileComponent,
   },
 
   // Protected application routes
@@ -35,30 +44,30 @@ export const routes: Routes = [
       {
         path: '',
         redirectTo: 'my-files',
-        pathMatch: 'full'
+        pathMatch: 'full',
       },
       {
         path: 'my-files',
-        component: MyFilesComponent
+        component: MyFilesComponent,
       },
       {
         path: 'dashboard',
-        component: DashboardComponent
+        component: DashboardComponent,
       },
       {
         path: 'shared-with-me',
-        component: SharedWithMeComponent
+        component: SharedWithMeComponent,
       },
       {
         path: 'shared-by-me',
-        component: SharedByMeComponent
-      }
-    ]
+        component: SharedByMeComponent,
+      },
+    ],
   },
 
   // Wildcard fallback
   {
     path: '**',
-    redirectTo: 'my-files'
-  }
+    redirectTo: 'my-files',
+  },
 ];
